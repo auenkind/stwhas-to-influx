@@ -4,6 +4,5 @@ WORKDIR /app
 COPY requirements.txt ./
 RUN pip install -r requirements.txt
 COPY stwhas-to-influx.py ./
-COPY entry.sh ./
 RUN chmod 755 entry.sh
 ENTRYPOINT [ "python", "stwhas-to-influx.py" ]
