@@ -1,0 +1,11 @@
+{
+	"name": "stwas-to-influx Devcontainer",
+	"image": "mcr.microsoft.com/devcontainers/python:0-3.11",
+	"customizations": {
+		"vscode": {
+			"settings": {},
+			"extensions": []
+		}
+	},
+	"postCreateCommand": "pip3 install -r requirements.txt"
+}
