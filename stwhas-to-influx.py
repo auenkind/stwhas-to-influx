@@ -1,8 +1,9 @@
 import argparse
 from datetime import datetime, timedelta
 import influxdb_client
-from stwhas_api_client import StwHasApiClient, StwhasInterval
+from stwhas_api_client import StwHasApiClient, StwhasInterval, StwhasUnit, StwHasConsumptionCost
 from influxdb_client.client.write_api import SYNCHRONOUS
+from pytz import timezone
 
 parser = argparse.ArgumentParser(
                     prog='Stwhas to influx',
@@ -27,6 +28,7 @@ client = influxdb_client.InfluxDBClient(
 
 now = datetime.now()
 currentDay = datetime(now.year, now.month, now.day)
+#currentDay = currentDay.replace(tzinfo=timezone.utc)
 
 startTime = currentDay - timedelta(days=2)
 endTime = currentDay
@@ -35,11 +37,39 @@ endTime = endTime + timedelta(hours=4)
 
 apiClient = StwHasApiClient(args.user, args.password)
 apiClient.login()
+
+costKwH = apiClient.consumptionCost(startTime, endTime, StwhasInterval.Hour, StwhasUnit.Kwh)
+costEur = apiClient.consumptionCost(startTime, endTime, StwhasInterval.Hour, StwhasUnit.Eur)
 usage = apiClient.smartMeterData(startTime, endTime, args.meter_number, StwhasInterval.Hour)
+
+#delta = usage.data[0].time.timestamp() - cost.data[0].time.timestamp()
+
+#for i in range(len(usage.data)):
+ #   print(usage.data[i].time, usage.data[i].deliverySum, cost.data[i].delivery)
 
 write_api = client.write_api(write_options=SYNCHRONOUS)
 
+
+def getCost(data:StwHasConsumptionCost):
+    ret = []
+    for entry in data.data:
+        p = influxdb_client.Point("power_usage_info").tag("source", "stwhas")
+
+        if(data.unit == StwhasUnit.Kwh):
+            p.field("deliveryForCost", float(entry.delivery))
+        else:
+            p.field("basePrice", float(entry.baseprice))
+            p.field("workPrice", float(entry.workprice))
+            p.field("sumPrice", float(entry.sum))
+        p.field("interpolatedCost", entry.interpolated)
+        p.time(entry.time)
+        ret.append(p)
+    return ret
+
 points = []
+points += getCost(costKwH)
+points += getCost(costEur)
+
 for entry in usage.data:
     p = influxdb_client.Point("power_usage_info").tag("source", "stwhas")
     
